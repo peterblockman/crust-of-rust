@@ -1,0 +1,59 @@
+use std::fmt::Debug;
+
+#[derive(Debug)]
+pub struct StrSplit<'a> {
+    remainder: Option< &'a str>,
+    delimiter: &'a str
+}
+
+// '_ anonymous lifetime are places you tell compiler to guess lifetime
+// where there is only only one possible
+// but we use '_ here give error due to lifetime error
+// the ref is valid for the lifetime "_" 
+// StrSplit has '_, but remainder has the same lifetime with StrSplit
+// the complier does not know haystack lives for as long as '_
+// problem: no relationship between '_ and haystack and deliieter 
+// solution: add 'a 
+impl<'a> StrSplit<'a>{
+    pub fn new(haystack: &'a str, delimiter: &'a str) -> Self {
+       Self {
+           remainder: haystack,
+           delimiter,
+       }
+    }
+}
+// why we need 'a in impl: this impl block is generic over 'a
+impl<'a> Iterator for StrSplit<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item>{
+        if let Some(next_delim) = self.remainder.find(self.delimiter) {
+            let until_delimter = &self.remainder[..next_delim];
+            self.remainder = &self.remainder[(next_delim + self.delimiter.len())..];
+            return Some(until_delimter);
+        } else if self.remainder.is_empty() {
+            None
+        } else {
+            let rest = self.remainder;
+            self.remainder ="";
+            //  remainder is &'a and "" str &'static str (static lifetime is the life extends to the end of lifetime.
+            // So a can be assigned to static)
+            Some(rest)
+        }
+    }
+
+}
+
+#[test]
+fn it_works(){
+    let haystack = "a b c d";
+    let letters = StrSplit::new(haystack, " ");
+    assert!(letters.eq(vec!["a", "b", "c", "d"].into_iter()));
+}
+
+#[test]
+fn tail(){
+    let haystack = "a b c d ";
+    let letters = StrSplit::new(haystack, " ");
+    assert!(letters.eq(vec!["a", "b", "c", "d", ""].into_iter()));
+}
